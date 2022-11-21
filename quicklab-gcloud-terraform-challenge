@@ -1,0 +1,184 @@
+cd ~
+touch main.tf variables.tf
+mkdir -p modules/instances
+cd modules/instances
+touch instances.tf outputs.tf variables.tf
+cd ~
+mkdir -p modules/storage
+cd modules/storage
+touch storage.tf outputs.tf variables.tf
+
+
+
+
+variable "region" {
+  description = "The region variable"
+  type = string
+  default     = "us-east1"
+}
+
+variable "zone" {
+  description = "The zone variable"
+  type = string
+  default     = "us-east1-c"
+}
+
+variable "project_id" {
+  description = "The project id of owner"
+  type = string
+  default     = "qwiklabs-gcp-02-0c0da7aedb70"
+}
+
+
+
+terraform {
+  required_providers {
+    google = {
+      version = "3.55.0"
+      source = "hashicorp/google"
+    }
+  }
+}
+provider "google" {
+  project = "var.project_id"
+  region  = "var.region"
+  zone    = "var.zone"
+}
+
+module "instances" {
+
+  source = "./modules/instances"
+
+}
+
+
+
+
+resource "google_compute_instance" "tf-instance-1" {
+  name         = "tf-instance-1"
+  machine_type = "n1-standard-1"
+  zone = var.zone
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-10"
+    }
+  }
+  network_interface {
+    network = "default"
+  }
+  metadata_startup_script = <<-EOT
+        #!/bin/bash
+    EOT
+  allow_stopping_for_update = true
+}
+
+
+resource "google_compute_instance" "tf-instance-2" {
+  name         = "tf-instance-2"
+  machine_type = "n1-standard-1"
+  zone = var.zone
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-10"
+    }
+  }
+  network_interface {
+    network = "default"
+  }
+  metadata_startup_script = <<-EOT
+        #!/bin/bash
+    EOT
+  allow_stopping_for_update = true
+}
+
+terraform import module.instances.google_compute_instance.tf-instance-1 6213639631097204241
+
+terraform import module.instances.google_compute_instance.tf-instance-2 8486034994082778641
+
+terraform init
+terraform apply
+
+
+
+
+add to storage tf
+
+resource "google_storage_bucket" "tf-bucket-735361" {
+  name        = "tf-bucket-735361"
+  location    = "US"
+  force_destroy = true
+  uniform_bucket_level_access = true
+}
+
+add to main as reference
+
+module "storage" {
+  source     = "./modules/storage"
+}
+
+terraform init
+terraform apply
+
+
+backend "gcs" {
+    bucket  = "tf-bucket-396833"
+    prefix  = "terraform/state"
+  }
+
+terraform init
+terraform apply
+
+
+terraform taint module.instances.google_compute_instance.tf-instance-443645
+
+terraform plan
+terraform apply
+
+
+module "tf-vpc-782754" {
+  source  = "terraform-google-modules/network/google"
+  version = "3.4.0"
+  project_id   = var.project_id
+  network_name = "tf-vpc-782754"
+  routing_mode = "GLOBAL"
+  subnets = [
+    {
+      subnet_name   = "subnet-01"
+      subnet_ip     = "10.10.10.0/24"
+      subnet_region = "us-east1"
+    },
+    {
+      subnet_name           = "subnet-02"
+      subnet_ip             = "10.10.20.0/24"
+      subnet_region         = "us-east1"
+      subnet_private_access = "true"
+      subnet_flow_logs      = "true"
+    }
+]
+}
+
+terraform init
+terraform apply
+
+
+network = "tf-vpc-782754"
+subnetwork = "subnet-01"
+
+terraform init
+terraform apply
+
+resource "google_compute_firewall" "tf-firewall" {
+  name    = "tf-firewall"
+ network = "projects/qwiklabs-gcp-02-0c0da7aedb70/global/networks/tf-vpc-782754"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80"]
+  }
+
+  source_tags = ["web"]
+  source_ranges = ["0.0.0.0/0"]
+}
+
+terraform init
+terraform apply
